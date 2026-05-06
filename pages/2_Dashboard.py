@@ -63,15 +63,32 @@ def fetch_insights():
         return
     repo = git.Repo(repo_path)
     print(f"DEBUG: Found repository: {repo}")
-    default_branch = repo.remotes.origin.refs.HEAD.reference.name.split('/')[-1]
-    commits = list(repo.iter_commits(default_branch))
+    
+    try:
+        # Safely get the default branch name, handling slashes in names
+        ref_name = repo.remotes.origin.refs.HEAD.reference.name
+        default_branch = ref_name.replace('origin/', '', 1) if ref_name.startswith('origin/') else ref_name
+    except Exception:
+        try:
+            default_branch = repo.active_branch.name
+        except Exception:
+            default_branch = 'HEAD'
+            
+    # Iterate commits using resolved branch or fallback to HEAD
+    commits = list(repo.iter_commits(default_branch if default_branch != 'HEAD' else repo.head))
     contributors = set(c.author.name for c in commits)
     
+    active_branch_name = "Detached HEAD"
+    try:
+        active_branch_name = repo.active_branch.name
+    except:
+        pass
+
     st.session_state.insights = {
         "total_commits": len(commits),
         "total_contributors": len(contributors),
-        "active_branch": repo.active_branch.name,
-        "last_commit": datetime.fromtimestamp(commits[0].committed_date).strftime('%Y-%m-%d')
+        "active_branch": active_branch_name,
+        "last_commit": datetime.fromtimestamp(commits[0].committed_date).strftime('%Y-%m-%d') if commits else "N/A"
     }
     return st.session_state.insights
 

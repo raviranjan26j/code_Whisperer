@@ -62,13 +62,23 @@ def run_pipeline(repo_url):
 
         # Git metadata
         try:
-            default_branch = repo.remotes.origin.refs.HEAD.reference.name.split('/')[-1]
+            # Safely get the default branch name, handling slashes in names (e.g. dependabot branches)
+            ref_name = repo.remotes.origin.refs.HEAD.reference.name
+            default_branch = ref_name.replace('origin/', '', 1) if ref_name.startswith('origin/') else ref_name
         except Exception:
-            default_branch = repo.active_branch.name
+            try:
+                default_branch = repo.active_branch.name
+            except Exception:
+                default_branch = 'HEAD'
+        
         st.session_state.repo_default_branch = default_branch
-        st.session_state.repo_active_branch = repo.active_branch.name
+        try:
+            st.session_state.repo_active_branch = repo.active_branch.name
+        except Exception:
+            st.session_state.repo_active_branch = "Detached HEAD"
 
-        commits = list(repo.iter_commits(default_branch))
+        # Use HEAD if default_branch resolution was problematic, ensuring iter_commits succeeds
+        commits = list(repo.iter_commits(default_branch if default_branch != 'HEAD' else repo.head))
         st.session_state.repo_total_commits = len(commits)
         contributors = set(c.author.email for c in commits)
         st.session_state.repo_total_contributors = len(contributors)
