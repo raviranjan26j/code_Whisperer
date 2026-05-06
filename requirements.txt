@@ -3,3 +3,4 @@ gitingest
 langchain-nvidia-ai-endpoints
 plotly
 langchain_huggingface
+langchain_community
