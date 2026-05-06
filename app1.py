@@ -51,7 +51,10 @@ def run_pipeline(repo_url):
 
     # run gitnexus analyze
     with st.spinner("Analyzing Repository..."):
-        subprocess.run(["npx", "--y", "gitnexus", "analyze"], cwd=temp_dir)
+        env = os.environ.copy()
+        env["npm_config_cache"] = os.path.abspath(os.path.join(temp_dir, ".npm_cache"))
+        env["npm_config_prefix"] = os.path.abspath(os.path.join(temp_dir, ".npm_global"))
+        subprocess.run(["npx", "--y", "gitnexus", "analyze"], cwd=temp_dir, env=env)
 
         # Basic identifiers
         st.session_state.repo_name = os.path.basename(repo_url.rstrip('/'))
