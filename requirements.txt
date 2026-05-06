@@ -5,5 +5,4 @@ plotly
 langchain_huggingface
 langchain_community
 sentence-transformers
-faiss-gpu
 faiss-cpu
