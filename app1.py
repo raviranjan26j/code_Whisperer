@@ -10,6 +10,12 @@ import json
 from ui_components import apply_custom_css, render_header, render_footer
 from util import initialize_rag_pipeline
 
+# Check if gitnexus is installed, if not, install it
+try:
+    subprocess.run(["gitnexus", "--version"], capture_output=True)
+except FileNotFoundError:
+    subprocess.run(["npm", "install", "-g", "gitnexus"])
+
 
 # --- Session Management ---
 if "processing_complete" not in st.session_state: st.session_state.processing_complete = False
