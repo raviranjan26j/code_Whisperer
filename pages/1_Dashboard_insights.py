@@ -76,9 +76,13 @@ def fetch_criticality_index():
 
     try:
         with st.spinner("Calculating Criticality Index..."):
+            env = os.environ.copy()
+            env["npm_config_cache"] = os.path.abspath(os.path.join(repo_path, ".npm_cache"))
+            env["npm_config_prefix"] = os.path.abspath(os.path.join(repo_path, ".npm_global"))
             result = subprocess.run(
                 ["npx", "-y", "gitnexus", "cypher", "--repo", "temp_repo", query],
-                cwd=repo_path,
+                cwd=project_root,
+                env=env,
                 capture_output=True,
                 text=True
             )
@@ -103,8 +107,11 @@ def fetch_criticality_index():
                 if criticality_data:
                     top_files = criticality_data[:3]
                     analyze_top_files_risk(top_files)
+            else:
+                st.session_state.criticality_index = []
 
     except Exception as e:
+        st.session_state.criticality_index = []
         st.error(f"Error fetching criticality index: {e}")
 
 def fetch_impact_radius():
@@ -116,9 +123,13 @@ def fetch_impact_radius():
 
     try:
         with st.spinner("Analyzing Structural Impact Radius..."):
+            env = os.environ.copy()
+            env["npm_config_cache"] = os.path.abspath(os.path.join(repo_path, ".npm_cache"))
+            env["npm_config_prefix"] = os.path.abspath(os.path.join(repo_path, ".npm_global"))
             result = subprocess.run(
                 ["npx", "-y", "gitnexus", "cypher", "--repo", "temp_repo", query],
-                cwd=repo_path,
+                cwd=project_root,
+                env=env,
                 capture_output=True,
                 text=True
             )
@@ -137,7 +148,10 @@ def fetch_impact_radius():
                                 except:
                                     continue
                 st.session_state.impact_radius = impact_data
+            else:
+                st.session_state.impact_radius = []
     except Exception as e:
+        st.session_state.impact_radius = []
         st.error(f"Error fetching Impact Radius: {e}")
 
 def fetch_process_flows():
@@ -149,9 +163,13 @@ def fetch_process_flows():
 
     try:
         with st.spinner("Tracing Process Flows..."):
+            env = os.environ.copy()
+            env["npm_config_cache"] = os.path.abspath(os.path.join(repo_path, ".npm_cache"))
+            env["npm_config_prefix"] = os.path.abspath(os.path.join(repo_path, ".npm_global"))
             result = subprocess.run(
                 ["npx", "-y", "gitnexus", "cypher", "--repo", "temp_repo", query],
-                cwd=repo_path,
+                cwd=project_root,
+                env=env,
                 capture_output=True,
                 text=True
             )
@@ -175,7 +193,10 @@ def fetch_process_flows():
                                 except (ValueError, IndexError):
                                     continue
                 st.session_state.process_flows = processes
+            else:
+                st.session_state.process_flows = []
     except Exception as e:
+        st.session_state.process_flows = []
         st.error(f"Error fetching Process Flows: {e}")
 
 def analyze_top_files_risk(top_files):
