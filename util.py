@@ -1,8 +1,13 @@
+import logging
 import os
 from gitingest import ingest
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+# Suppress verbose logging from transformers and sentence_transformers
+logging.getLogger("transformers").setLevel(logging.ERROR)
+logging.getLogger("sentence_transformers").setLevel(logging.ERROR)
 
 def initialize_rag_pipeline(repo_path):
     """
