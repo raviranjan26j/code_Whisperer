@@ -15,14 +15,6 @@ if "processing_complete" not in st.session_state: st.session_state.processing_co
 if "repo_url" not in st.session_state: st.session_state.repo_url = ""
 if "rag_initializing" not in st.session_state: st.session_state.rag_initializing = False
 
-def bg_initialize_rag(repo_path):
-    try:
-        st.session_state.vectorstore = initialize_rag_pipeline(repo_path)
-    except Exception as e:
-        print(f"Error in background RAG initialization: {e}")
-    finally:
-        st.session_state.rag_initializing = False
-
 
 def run_pipeline(repo_url):
     temp_dir = "./temp_repo"
@@ -31,19 +23,8 @@ def run_pipeline(repo_url):
     with st.spinner(" Extracting Repository..."):
         repo = Repo.clone_from(repo_url, temp_dir)
         
-    # Start RAG initialization in parallel
-    st.session_state.rag_initializing = True
-    rag_thread = threading.Thread(
-        target=bg_initialize_rag, 
-        args=(os.path.abspath(temp_dir),)
-    )
-    # Add script run context to the thread to allow access to st.session_state
-    from streamlit.runtime.scriptrunner import add_script_run_ctx
-    add_script_run_ctx(rag_thread)
-    rag_thread.start()
-
     # run gitnexus analyze
-    with st.spinner("Analyzing Repository..."):
+    with st.spinner("Running Deep Architectural Analysis..."):
         env = os.environ.copy()
         
         # Ensure local npm directories exist to avoid ENOENT errors
@@ -60,7 +41,30 @@ def run_pipeline(repo_url):
         # Also add the local bin to PATH just in case
         env["PATH"] = f"{os.path.join(npm_global, 'bin')}{os.pathsep}{env.get('PATH', '')}"
         
-        subprocess.run(["npx", "-y", "gitnexus", "analyze"], cwd=temp_dir, env=env)
+        try:
+            # Run analyze synchronously
+            result = subprocess.run(
+                ["npx", "-y", "gitnexus", "analyze"], 
+                cwd=temp_dir, 
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False # We handle return code manually to show errors
+            )
+            if result.returncode != 0:
+                st.error(f"Analysis Failed: {result.stderr}")
+                return # Stop pipeline if analysis fails
+        except Exception as e:
+            st.error(f"Subprocess error: {str(e)}")
+            return
+
+    # Initialize RAG synchronously to avoid memory spikes and context loss
+    with st.spinner("Initializing AI Knowledge Base..."):
+        try:
+            st.session_state.vectorstore = initialize_rag_pipeline(os.path.abspath(temp_dir))
+        except Exception as e:
+            st.error(f"AI Initialization Error: {str(e)}")
+            # Don't return, we can still show basic metadata
 
         # Basic identifiers
         st.session_state.repo_name = os.path.basename(repo_url.rstrip('/'))
