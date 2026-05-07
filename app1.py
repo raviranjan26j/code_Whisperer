@@ -23,25 +23,31 @@ def run_pipeline(repo_url):
     with st.spinner(" Extracting Repository..."):
         repo = Repo.clone_from(repo_url, temp_dir)
         
+    # Use a persistent local npm directory to avoid re-downloading gitnexus every time
+    # and to keep it separate from the frequently-deleted temp_repo
+    local_npm_dir = os.path.abspath("./.npm_local")
+    npm_cache = os.path.join(local_npm_dir, ".npm_cache")
+    npm_global = os.path.join(local_npm_dir, ".npm_global")
+    os.makedirs(npm_cache, exist_ok=True)
+    os.makedirs(npm_global, exist_ok=True)
+    os.makedirs(os.path.join(npm_global, "bin"), exist_ok=True)
+    os.makedirs(os.path.join(npm_global, "lib"), exist_ok=True)
+
+    # Logging to file for deep debugging
+    debug_log = os.path.abspath("./debug_extraction.log")
+    with open(debug_log, "a") as f:
+        f.write(f"--- Extraction Started: {datetime.now()} ---\n")
+        f.write(f"Repo: {repo_url}\n")
+
     # run gitnexus analyze
     with st.spinner("Running Deep Architectural Analysis..."):
         env = os.environ.copy()
-        
-        # Ensure local npm directories exist to avoid ENOENT errors
-        npm_cache = os.path.abspath(os.path.join(temp_dir, ".npm_cache"))
-        npm_global = os.path.abspath(os.path.join(temp_dir, ".npm_global"))
-        os.makedirs(npm_cache, exist_ok=True)
-        os.makedirs(npm_global, exist_ok=True)
-        os.makedirs(os.path.join(npm_global, "bin"), exist_ok=True)
-        os.makedirs(os.path.join(npm_global, "lib"), exist_ok=True)
-        
         env["npm_config_cache"] = npm_cache
         env["npm_config_prefix"] = npm_global
-        
-        # Also add the local bin to PATH just in case
         env["PATH"] = f"{os.path.join(npm_global, 'bin')}{os.pathsep}{env.get('PATH', '')}"
         
         try:
+            with open(debug_log, "a") as f: f.write("Running npx gitnexus analyze...\n")
             # Run analyze synchronously
             result = subprocess.run(
                 ["npx", "-y", "gitnexus", "analyze"], 
@@ -49,22 +55,27 @@ def run_pipeline(repo_url):
                 env=env,
                 capture_output=True,
                 text=True,
-                check=False # We handle return code manually to show errors
+                check=False
             )
-            if result.returncode != 0:
-                st.error(f"Analysis Failed: {result.stderr}")
-                return # Stop pipeline if analysis fails
+            with open(debug_log, "a") as f:
+                f.write(f"npx returncode: {result.returncode}\n")
+                if result.returncode != 0:
+                    f.write(f"npx stderr: {result.stderr}\n")
+                    st.error(f"Analysis Failed. Checking basic metrics instead...")
+                    # We continue anyway to show what we can
         except Exception as e:
-            st.error(f"Subprocess error: {str(e)}")
-            return
+            with open(debug_log, "a") as f: f.write(f"Subprocess Exception: {str(e)}\n")
+            st.error(f"Engine Error: {str(e)}")
 
-    # Initialize RAG synchronously to avoid memory spikes and context loss
+    # Initialize RAG synchronously
     with st.spinner("Initializing AI Knowledge Base..."):
         try:
+            with open(debug_log, "a") as f: f.write("Initializing RAG...\n")
             st.session_state.vectorstore = initialize_rag_pipeline(os.path.abspath(temp_dir))
+            with open(debug_log, "a") as f: f.write("RAG Initialized successfully.\n")
         except Exception as e:
+            with open(debug_log, "a") as f: f.write(f"RAG Error: {str(e)}\n")
             st.error(f"AI Initialization Error: {str(e)}")
-            # Don't return, we can still show basic metadata
 
         # Basic identifiers
         st.session_state.repo_name = os.path.basename(repo_url.rstrip('/'))
