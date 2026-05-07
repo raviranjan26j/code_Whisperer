@@ -16,6 +16,40 @@ if "processing_complete" not in st.session_state: st.session_state.processing_co
 if "repo_url" not in st.session_state: st.session_state.repo_url = ""
 if "rag_initializing" not in st.session_state: st.session_state.rag_initializing = False
 
+def ensure_node_installed():
+    """Checks for npx/node and downloads a portable version if missing."""
+    import platform
+    import tarfile
+    import urllib.request
+    
+    local_node_path = os.path.abspath("./node_bin")
+    node_exe = os.path.join(local_node_path, "bin", "node")
+    npx_exe = os.path.join(local_node_path, "bin", "npx")
+    
+    if shutil.which("npx"):
+        return "npx"
+    
+    if os.path.exists(npx_exe):
+        return npx_exe
+
+    st.info("🛠 First-time setup: Downloading lightweight Node.js runtime...")
+    os.makedirs(local_node_path, exist_ok=True)
+    
+    # Download portable node for Linux 64-bit (Streamlit Cloud)
+    url = "https://nodejs.org/dist/v20.11.0/node-v20.11.0-linux-x64.tar.xz"
+    tar_path = "./node.tar.xz"
+    
+    try:
+        urllib.request.urlretrieve(url, tar_path)
+        # Use tar command since it's usually available and faster for .xz
+        subprocess.run(["tar", "-xJf", tar_path, "-C", local_node_path, "--strip-components=1"], check=True)
+        os.remove(tar_path)
+        st.success("✅ Node.js runtime ready!")
+        return npx_exe
+    except Exception as e:
+        st.error(f"❌ Failed to download portable Node: {e}")
+        return "npx" # Fallback to system npx
+
 def log_extraction(msg):
     debug_log = os.path.abspath("./debug_extraction.log")
     with open(debug_log, "a") as f:
@@ -59,10 +93,17 @@ def run_pipeline(repo_url):
         env["PATH"] = f"{os.path.join(npm_global, 'bin')}{os.pathsep}{env.get('PATH', '')}"
         
         try:
-            with open(debug_log, "a") as f: f.write("Running npx gitnexus analyze...\n")
+            npx_cmd = ensure_node_installed()
+            log_extraction(f"Using npx command: {npx_cmd}")
+            
+            # Add local node to PATH if using portable version
+            if "node_bin" in npx_cmd:
+                env["PATH"] = f"{os.path.dirname(npx_cmd)}{os.pathsep}{env.get('PATH', '')}"
+
+            with open(debug_log, "a") as f: f.write(f"Running {npx_cmd} gitnexus analyze...\n")
             # Run analyze synchronously
             result = subprocess.run(
-                ["npx", "-y", "gitnexus", "analyze"], 
+                [npx_cmd, "-y", "gitnexus", "analyze"], 
                 cwd=temp_dir, 
                 env=env,
                 capture_output=True,
