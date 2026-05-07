@@ -60,6 +60,10 @@ def run_pipeline(repo_url):
     st.session_state.temp_dir = temp_dir
     if os.path.exists(temp_dir): shutil.rmtree(temp_dir)
     with st.spinner(" Extracting Repository..."):
+        # Log disk space before starting
+        total, used, free = shutil.disk_usage("/")
+        log_extraction(f"Disk Space: {free // (1024**2)}MB free of {total // (1024**2)}MB")
+        
         log_extraction(f"Environment: PATH={os.environ.get('PATH')}")
         log_extraction(f"CWD: {os.getcwd()}")
         
@@ -67,7 +71,9 @@ def run_pipeline(repo_url):
         npx_path = shutil.which("npx")
         log_extraction(f"npx located at: {npx_path}")
         
-        repo = Repo.clone_from(repo_url, temp_dir)
+        # Use depth=1 for a shallow clone (much smaller)
+        log_extraction(f"Cloning {repo_url} (depth=1)...")
+        repo = Repo.clone_from(repo_url, temp_dir, depth=1)
         
     # Use a persistent local npm directory to avoid re-downloading gitnexus every time
     # and to keep it separate from the frequently-deleted temp_repo
