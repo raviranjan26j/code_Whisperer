@@ -177,7 +177,7 @@ with col_main:
 st.write("---")
 
 # Helpful documentation section
-st.markdown("<h3 style='text-align: center; color: floralwhite margin-bottom: 2rem;'>💡 How It Works ?</h3>", unsafe_allow_html=True)
+st.markdown("<h3 style='text-align: center; color: floralwhite; margin-bottom: 2rem;'>💡 How It Works ?</h3>", unsafe_allow_html=True)
 col_card1, col_card2, col_card3 = st.columns(3)
 
 with col_card1:
