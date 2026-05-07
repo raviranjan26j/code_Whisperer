@@ -16,12 +16,23 @@ if "processing_complete" not in st.session_state: st.session_state.processing_co
 if "repo_url" not in st.session_state: st.session_state.repo_url = ""
 if "rag_initializing" not in st.session_state: st.session_state.rag_initializing = False
 
+def log_extraction(msg):
+    debug_log = os.path.abspath("./debug_extraction.log")
+    with open(debug_log, "a") as f:
+        f.write(f"{datetime.now()}: {msg}\n")
 
 def run_pipeline(repo_url):
     temp_dir = "./temp_repo"
     st.session_state.temp_dir = temp_dir
     if os.path.exists(temp_dir): shutil.rmtree(temp_dir)
     with st.spinner(" Extracting Repository..."):
+        log_extraction(f"Environment: PATH={os.environ.get('PATH')}")
+        log_extraction(f"CWD: {os.getcwd()}")
+        
+        # Check for npx/npm in common locations
+        npx_path = shutil.which("npx")
+        log_extraction(f"npx located at: {npx_path}")
+        
         repo = Repo.clone_from(repo_url, temp_dir)
         
     # Use a persistent local npm directory to avoid re-downloading gitnexus every time
