@@ -184,7 +184,7 @@ with col_card1:
     st.markdown("""
     <div class="info-card">
         <h3>1. Connect Repository</h3>
-        <p>Simply paste the URL of any public GitHub project. Our intelligence agent immediately parses the source code safely.</p>
+        <p>Simply paste the URL of any public GitHub project. Our intelligence agent immediately parses the source code safely and securely.</p>
     </div>
     """, unsafe_allow_html=True)
 
