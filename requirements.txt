@@ -8,3 +8,4 @@ sentence-transformers
 faiss-cpu
 torch
 torchvision
+rank_bm25
