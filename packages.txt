@@ -1,2 +1,0 @@
-# Node.js and NPM are usually pre-installed on Streamlit Cloud.
-# Removing them manually saves 600MB of disk space.
