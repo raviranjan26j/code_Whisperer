@@ -51,6 +51,8 @@ def run_pipeline(repo_url):
         npm_global = os.path.abspath(os.path.join(temp_dir, ".npm_global"))
         os.makedirs(npm_cache, exist_ok=True)
         os.makedirs(npm_global, exist_ok=True)
+        os.makedirs(os.path.join(npm_global, "bin"), exist_ok=True)
+        os.makedirs(os.path.join(npm_global, "lib"), exist_ok=True)
         
         env["npm_config_cache"] = npm_cache
         env["npm_config_prefix"] = npm_global
