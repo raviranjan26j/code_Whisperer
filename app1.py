@@ -11,6 +11,7 @@ from ui_components import apply_custom_css, render_header, render_footer
 from util import initialize_rag_pipeline
 
 # --- Session Management ---
+if "processing_complete" not in st.session_state: st.session_state.repo_url = "" # Reset on new session
 if "processing_complete" not in st.session_state: st.session_state.processing_complete = False
 if "repo_url" not in st.session_state: st.session_state.repo_url = ""
 if "rag_initializing" not in st.session_state: st.session_state.rag_initializing = False
@@ -228,3 +229,12 @@ with col_card3:
 st.write("---")
 
 render_footer()
+
+# --- Debugging Section ---
+if os.path.exists("./debug_extraction.log"):
+    with st.expander("🛠 View Analysis Debug Logs"):
+        with open("./debug_extraction.log", "r") as f:
+            st.code(f.read())
+        if st.button("Clear Debug Logs"):
+            os.remove("./debug_extraction.log")
+            st.rerun()
