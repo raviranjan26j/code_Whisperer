@@ -77,8 +77,17 @@ def fetch_criticality_index():
     try:
         with st.spinner("Calculating Criticality Index..."):
             env = os.environ.copy()
-            env["npm_config_cache"] = os.path.abspath(os.path.join(repo_path, ".npm_cache"))
-            env["npm_config_prefix"] = os.path.abspath(os.path.join(repo_path, ".npm_global"))
+            # Ensure local npm directories exist to avoid ENOENT errors
+            npm_cache = os.path.abspath(os.path.join(repo_path, ".npm_cache"))
+            npm_global = os.path.abspath(os.path.join(repo_path, ".npm_global"))
+            os.makedirs(npm_cache, exist_ok=True)
+            os.makedirs(npm_global, exist_ok=True)
+
+            env["npm_config_cache"] = npm_cache
+            env["npm_config_prefix"] = npm_global
+            # Also add the local bin to PATH just in case
+            env["PATH"] = f"{os.path.join(npm_global, 'bin')}{os.pathsep}{env.get('PATH', '')}"
+
             result = subprocess.run(
                 ["npx", "-y", "gitnexus", "cypher", "--repo", "temp_repo", query],
                 cwd=project_root,
@@ -124,8 +133,17 @@ def fetch_impact_radius():
     try:
         with st.spinner("Analyzing Structural Impact Radius..."):
             env = os.environ.copy()
-            env["npm_config_cache"] = os.path.abspath(os.path.join(repo_path, ".npm_cache"))
-            env["npm_config_prefix"] = os.path.abspath(os.path.join(repo_path, ".npm_global"))
+            # Ensure local npm directories exist to avoid ENOENT errors
+            npm_cache = os.path.abspath(os.path.join(repo_path, ".npm_cache"))
+            npm_global = os.path.abspath(os.path.join(repo_path, ".npm_global"))
+            os.makedirs(npm_cache, exist_ok=True)
+            os.makedirs(npm_global, exist_ok=True)
+
+            env["npm_config_cache"] = npm_cache
+            env["npm_config_prefix"] = npm_global
+            # Also add the local bin to PATH just in case
+            env["PATH"] = f"{os.path.join(npm_global, 'bin')}{os.pathsep}{env.get('PATH', '')}"
+
             result = subprocess.run(
                 ["npx", "-y", "gitnexus", "cypher", "--repo", "temp_repo", query],
                 cwd=project_root,
@@ -164,8 +182,17 @@ def fetch_process_flows():
     try:
         with st.spinner("Tracing Process Flows..."):
             env = os.environ.copy()
-            env["npm_config_cache"] = os.path.abspath(os.path.join(repo_path, ".npm_cache"))
-            env["npm_config_prefix"] = os.path.abspath(os.path.join(repo_path, ".npm_global"))
+            # Ensure local npm directories exist to avoid ENOENT errors
+            npm_cache = os.path.abspath(os.path.join(repo_path, ".npm_cache"))
+            npm_global = os.path.abspath(os.path.join(repo_path, ".npm_global"))
+            os.makedirs(npm_cache, exist_ok=True)
+            os.makedirs(npm_global, exist_ok=True)
+
+            env["npm_config_cache"] = npm_cache
+            env["npm_config_prefix"] = npm_global
+            # Also add the local bin to PATH just in case
+            env["PATH"] = f"{os.path.join(npm_global, 'bin')}{os.pathsep}{env.get('PATH', '')}"
+
             result = subprocess.run(
                 ["npx", "-y", "gitnexus", "cypher", "--repo", "temp_repo", query],
                 cwd=project_root,

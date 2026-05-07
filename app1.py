@@ -10,13 +10,6 @@ import json
 from ui_components import apply_custom_css, render_header, render_footer
 from util import initialize_rag_pipeline
 
-# Check if gitnexus is installed, if not, install it
-try:
-    subprocess.run(["gitnexus", "--version"], capture_output=True)
-except FileNotFoundError:
-    subprocess.run(["npm", "install", "-g", "gitnexus"])
-
-
 # --- Session Management ---
 if "processing_complete" not in st.session_state: st.session_state.processing_complete = False
 if "repo_url" not in st.session_state: st.session_state.repo_url = ""
@@ -52,9 +45,20 @@ def run_pipeline(repo_url):
     # run gitnexus analyze
     with st.spinner("Analyzing Repository..."):
         env = os.environ.copy()
-        env["npm_config_cache"] = os.path.abspath(os.path.join(temp_dir, ".npm_cache"))
-        env["npm_config_prefix"] = os.path.abspath(os.path.join(temp_dir, ".npm_global"))
-        subprocess.run(["npx", "--y", "gitnexus", "analyze"], cwd=temp_dir, env=env)
+        
+        # Ensure local npm directories exist to avoid ENOENT errors
+        npm_cache = os.path.abspath(os.path.join(temp_dir, ".npm_cache"))
+        npm_global = os.path.abspath(os.path.join(temp_dir, ".npm_global"))
+        os.makedirs(npm_cache, exist_ok=True)
+        os.makedirs(npm_global, exist_ok=True)
+        
+        env["npm_config_cache"] = npm_cache
+        env["npm_config_prefix"] = npm_global
+        
+        # Also add the local bin to PATH just in case
+        env["PATH"] = f"{os.path.join(npm_global, 'bin')}{os.pathsep}{env.get('PATH', '')}"
+        
+        subprocess.run(["npx", "-y", "gitnexus", "analyze"], cwd=temp_dir, env=env)
 
         # Basic identifiers
         st.session_state.repo_name = os.path.basename(repo_url.rstrip('/'))
@@ -177,7 +181,7 @@ with col_main:
 st.write("---")
 
 # Helpful documentation section
-st.markdown("<h3 style='text-align: center; color: floralwhite margin-bottom: 2rem;'>💡 How It Works ?</h3>", unsafe_allow_html=True)
+st.markdown("<h3 style='text-align: center; color: floralwhite; margin-bottom: 2rem;'>💡 How It Works ?</h3>", unsafe_allow_html=True)
 col_card1, col_card2, col_card3 = st.columns(3)
 
 with col_card1:
