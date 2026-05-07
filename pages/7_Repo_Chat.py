@@ -110,9 +110,9 @@ p code, li code, span code {
     color: #e6edf3 !important;
 }
 
-/* spinner */
-.stSpinner > div {
-    border-top-color: cornflowerblue !important;
+/* hide spinner */
+[data-testid="stSpinner"] {
+    display: none !important;
 }
 
 </style>
@@ -408,7 +408,10 @@ def rerank(query, docs):
 if "vectorstore" not in st.session_state or "bm25" not in st.session_state or "docs" not in st.session_state:
     loading_placeholder = st.empty()
     with loading_placeholder.container():
-        st.markdown(f"<h4 style='text-align: center; color: #a0aab2; margin-bottom: -15px;'>Ingesting and analyzing repository structure...</h4>", unsafe_allow_html=True)
+        st.markdown(
+            "<h4 style='text-align: center; color: #a0aab2; margin-bottom: -15px;'>Ingesting and analyzing repository structure...</h4>",
+            unsafe_allow_html=True
+        )
         render_lottie_transparent(os.path.join(os.path.dirname(__file__), "..", "assets", "AI.json"), height=200)
 
     with st.spinner("Indexing repository..."):
