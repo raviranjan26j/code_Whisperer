@@ -29,7 +29,7 @@ def fetch_insights():
     current_file_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(current_file_dir)
 
-    repo_path = os.path.join(project_root, "temp_repo")
+    repo_path = st.session_state.get("temp_dir", os.path.join(project_root, "temp_repo"))
 
     if not os.path.exists(repo_path):
         st.error(f"Could not find repository at: {repo_path}")
@@ -70,7 +70,7 @@ def fetch_insights():
 def fetch_criticality_index():
     current_file_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(current_file_dir)
-    repo_path = os.path.join(project_root, "temp_repo")
+    repo_path = st.session_state.get("temp_dir", os.path.join(project_root, "temp_repo"))
 
     query = "MATCH (f:File)<-[r]-(other) RETURN f.filePath, count(r) ORDER BY count(r) DESC LIMIT 5"
 
@@ -80,7 +80,7 @@ def fetch_criticality_index():
             env["npm_config_cache"] = os.path.abspath(os.path.join(repo_path, ".npm_cache"))
             env["npm_config_prefix"] = os.path.abspath(os.path.join(repo_path, ".npm_global"))
             result = subprocess.run(
-                ["npx", "-y", "gitnexus", "cypher", "--repo", "temp_repo", query],
+                ["npx", "-y", "gitnexus", "cypher", "--repo", repo_path, query],
                 cwd=project_root,
                 env=env,
                 capture_output=True,
@@ -117,7 +117,7 @@ def fetch_criticality_index():
 def fetch_impact_radius():
     current_file_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(current_file_dir)
-    repo_path = os.path.join(project_root, "temp_repo")
+    repo_path = st.session_state.get("temp_dir", os.path.join(project_root, "temp_repo"))
 
     query = "MATCH (f:File)<-[*1..5]-(other:File) RETURN f.filePath, count(DISTINCT other) ORDER BY count(DISTINCT other) DESC LIMIT 5"
 
@@ -127,7 +127,7 @@ def fetch_impact_radius():
             env["npm_config_cache"] = os.path.abspath(os.path.join(repo_path, ".npm_cache"))
             env["npm_config_prefix"] = os.path.abspath(os.path.join(repo_path, ".npm_global"))
             result = subprocess.run(
-                ["npx", "-y", "gitnexus", "cypher", "--repo", "temp_repo", query],
+                ["npx", "-y", "gitnexus", "cypher", "--repo", repo_path, query],
                 cwd=project_root,
                 env=env,
                 capture_output=True,
@@ -154,12 +154,61 @@ def fetch_impact_radius():
         st.session_state.impact_radius = []
         st.error(f"Error fetching Impact Radius: {e}")
 
+def analyze_architectural_flows(processes):
+    cross_flows = [p for p in processes if p['Type'] == 'cross_community']
+    if not cross_flows:
+        return
+
+    client = ChatNVIDIA(
+        model="meta/llama-3.1-70b-instruct",
+        api_key=st.secrets["NVIDIA_API_KEY"],
+        temperature=0.1,
+    )
+
+    # Prepare data for LLM
+    flow_summary = "\n".join([
+        f"ID: {p['ID']}, Label: {p['Process']}, Path: {p['Start']} -> {p['End']}"
+        for p in cross_flows[:12]
+    ])
+
+    prompt = f"""
+    Analyze these cross-community execution flows. 
+    For each ID, provide a 2-sentence (max 100 words) architectural justification for why this specific jump is a maintenance risk.
+
+    Return ONLY a valid JSON object where keys are the IDs and values are the justifications.
+    Format: {{"id_1": "reason", "id_2": "reason"}}
+
+    Flows:
+    {flow_summary}
+    """
+    try:
+        response = client.invoke(prompt).content
+        import json
+        # Extract JSON from response if LLM adds chatter
+        if "{" in response and "}" in response:
+            start = response.find("{")
+            end = response.rfind("}") + 1
+            just_map = json.loads(response[start:end])
+            
+            # Map back to original processes
+            for p in processes:
+                if p['ID'] in just_map:
+                    p['Justification'] = just_map[p['ID']]
+                elif p['Type'] == 'cross_community':
+                    p['Justification'] = "Structural dependency across module boundaries."
+                else:
+                    p['Justification'] = "—" # For intra flows
+        
+        st.session_state.process_flows = processes
+    except Exception as e:
+        print(f"AI Flow Analysis failed: {e}")
+
 def fetch_process_flows():
     current_file_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(current_file_dir)
-    repo_path = os.path.join(project_root, "temp_repo")
+    repo_path = st.session_state.get("temp_dir", os.path.join(project_root, "temp_repo"))
 
-    query = "MATCH (n:Process) RETURN n.id, n.label, n.processType, n.stepCount ORDER BY n.stepCount DESC"
+    query = "MATCH (n:Process) RETURN n.id, n.label, n.processType, n.stepCount, n.entryPointId, n.terminalId ORDER BY n.stepCount DESC"
 
     try:
         with st.spinner("Tracing Process Flows..."):
@@ -167,7 +216,7 @@ def fetch_process_flows():
             env["npm_config_cache"] = os.path.abspath(os.path.join(repo_path, ".npm_cache"))
             env["npm_config_prefix"] = os.path.abspath(os.path.join(repo_path, ".npm_global"))
             result = subprocess.run(
-                ["npx", "-y", "gitnexus", "cypher", "--repo", "temp_repo", query],
+                ["npx", "-y", "gitnexus", "cypher", "--repo", repo_path, query],
                 cwd=project_root,
                 env=env,
                 capture_output=True,
@@ -182,17 +231,21 @@ def fetch_process_flows():
                     for line in lines:
                         if "|" in line and "n.id" not in line and "---" not in line:
                             parts = [p.strip() for p in line.split('|') if p.strip()]
-                            if len(parts) == 4:
+                            if len(parts) == 6:
                                 try:
                                     processes.append({
                                         "ID": parts[0],
                                         "Process": parts[1],
                                         "Type": parts[2],
-                                        "Steps": int(parts[3])
+                                        "Steps": int(parts[3]),
+                                        "Start": parts[4],
+                                        "End": parts[5]
                                     })
                                 except (ValueError, IndexError):
                                     continue
                 st.session_state.process_flows = processes
+                if processes:
+                    analyze_architectural_flows(processes)
             else:
                 st.session_state.process_flows = []
     except Exception as e:
@@ -203,11 +256,11 @@ def analyze_top_files_risk(top_files):
     risks = []
     current_file_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(current_file_dir)
-    repo_path = os.path.join(project_root, "temp_repo")
+    repo_path = st.session_state.get("temp_dir", os.path.join(project_root, "temp_repo"))
 
     client = ChatNVIDIA(
         model="meta/llama-3.1-70b-instruct",
-        api_key="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",
+        api_key=st.secrets["NVIDIA_API_KEY"],
         temperature=0.1,
     )
     total = len(top_files)
@@ -269,7 +322,7 @@ def analyze_top_files_risk(top_files):
 def analyze_technical_debt():
     current_file_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(current_file_dir)
-    repo_path = os.path.join(project_root, "temp_repo")
+    repo_path = st.session_state.get("temp_dir", os.path.join(project_root, "temp_repo"))
     repo = git.Repo(repo_path)
 
     files = []
@@ -290,7 +343,7 @@ def analyze_technical_debt():
 
     client = ChatNVIDIA(
         model="meta/llama-3.1-70b-instruct",
-        api_key="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",
+        api_key=st.secrets["NVIDIA_API_KEY"],
         temperature=0.1,
     )
 
@@ -304,17 +357,29 @@ def analyze_technical_debt():
         except:
             continue
 
-        prompt = f"Rate the code complexity and technical debt of '{item['File']}' from 1-10. Return only: Score: [num]"
+        prompt = f"""
+        Analyze the code complexity and technical debt of '{item['File']}'.
+        Provide:
+        1. A Complexity Score (1-10).
+        2. A very brief justification (max 15 words) for this score.
+        
+        Return format: Score: [num], Reason: [text]
+        """
         try:
             response = client.invoke(prompt).content
-            match = re.search(r"Score:\s*(\d+)", response)
-            complexity = int(match.group(1)) if match else 5
+            match_score = re.search(r"Score:\s*(\d+)", response)
+            match_reason = re.search(r"Reason:\s*(.*)", response)
+            
+            complexity = int(match_score.group(1)) if match_score else 5
+            reason = match_reason.group(1).strip() if match_reason else "High churn and structural complexity."
+            
             hotspots.append({
                 "File": item["File"],
                 "Display": item["File"].split("/")[-1],
                 "Churn": item["Churn"],
                 "Complexity": complexity,
-                "Hotspot_Score": item["Churn"] * complexity
+                "Hotspot_Score": item["Churn"] * complexity,
+                "Justification": reason
             })
         except:
             continue
@@ -325,7 +390,7 @@ def analyze_technical_debt():
 def analyze_dependency_vulnerabilities():
     current_file_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(current_file_dir)
-    repo_path = os.path.join(project_root, "temp_repo")
+    repo_path = st.session_state.get("temp_dir", os.path.join(project_root, "temp_repo"))
 
     manifest_path = None
     manifest_type = None
@@ -350,7 +415,7 @@ def analyze_dependency_vulnerabilities():
 
         client = ChatNVIDIA(
             model="meta/llama-3.1-70b-instruct",
-            api_key="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",
+            api_key=st.secrets["NVIDIA_API_KEY"],
             temperature=0.1,
         )
 
@@ -602,9 +667,25 @@ with tab1:
             if proc_data:
                 proc_df = pd.DataFrame(proc_data)
 
+                def format_boundary(row):
+                    # Clean up IDs like "Function:src/..." -> "src/..."
+                    start = row.get('Start', '').replace('Function:', '').replace('File:', '')
+                    end = row.get('End', '').replace('Function:', '').replace('File:', '')
+                    
+                    # Get just the filename/module for cleaner UI
+                    start_short = start.split('/')[-1] if '/' in start else start
+                    end_short = end.split('/')[-1] if '/' in end else end
+                    
+                    if row['Type'] == 'cross_community':
+                        return f"{start_short} → {end_short}"
+                    return f"{start_short}"
+
                 proc_df["Type Badge"] = proc_df["Type"].apply(
                     lambda t: "🟢 intra" if t == "intra_community" else "🔴 cross"
                 )
+                
+                # Add Boundary info
+                proc_df["Flow Boundary"] = proc_df.apply(format_boundary, axis=1)
 
                 intra_count = (proc_df["Type"] == "intra_community").sum()
                 cross_count = (proc_df["Type"] == "cross_community").sum()
@@ -631,8 +712,13 @@ with tab1:
                     st.plotly_chart(fig_pie, use_container_width=True)
 
                 st.write("#### Process Detail")
+                
+                # Check if Justification column exists, if not add empty one
+                if "Justification" not in proc_df.columns:
+                    proc_df["Justification"] = "—"
+
                 st.dataframe(
-                    proc_df[["Process", "Type Badge", "Steps"]].rename(columns={"Type Badge": "Type"}),
+                    proc_df[["Process", "Type Badge", "Steps", "Flow Boundary", "Justification"]].rename(columns={"Type Badge": "Type"}),
                     hide_index=True,
                     use_container_width=True
                 )
@@ -649,16 +735,75 @@ with tab2:
     # 7. Advanced Developer Insights
     st.subheader("Advanced Developer Insights")
 
-    if st.button("🔥 Calculate Code Hotspots"):
-        with st.spinner("Calculating hotspots..."):
-            analyze_technical_debt()
+    if "hotspots_data" not in st.session_state:
+        analyze_technical_debt()
+
+    if st.button("🔥 Re-calculate Code Hotspots"):
+        analyze_technical_debt()
+        st.rerun()
 
     if "hotspots_data" in st.session_state:
-        st.write("#### Technical Debt Hotspots")
-        st.info("High Churn + High Complexity = Maintenance Hotspots.")
+        st.write("#### Repository Hotspot Map")
+        st.info("Explore your codebase risk profile. Outer segments represent individual files, colored by complexity.")
+        
         df_hs = pd.DataFrame(st.session_state.hotspots_data)
-        st.scatter_chart(df_hs, x="Churn", y="Complexity", size="Hotspot_Score", color="Display")
-        st.dataframe(df_hs.sort_values("Hotspot_Score", ascending=False), hide_index=True)
+        
+        repo_display_name = st.session_state.get("repo_name", "Repository")
+        
+        # 1. Sunburst Chart
+        fig_hs = px.sunburst(
+            df_hs,
+            path=[px.Constant(repo_display_name), "File"],
+            values="Churn",
+            color="Complexity",
+            color_continuous_scale='RdYlGn_r',
+            template="plotly_dark",
+            hover_data=["Hotspot_Score"]
+        )
+        fig_hs.update_layout(margin=dict(t=0, b=0, l=0, r=0), height=500)
+        st.plotly_chart(fig_hs, use_container_width=True)
+
+        # 2. Leaderboard Style
+        st.markdown(f"""
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                <h4 style="margin: 0;">Top Repository Hotspots</h4>
+                <div class="tooltip">
+                    <span style="font-size: 1.1rem; color: #6495ED; cursor: help;">ⓘ</span>
+                    <div class="tooltiptext">
+                        <strong>Risk Score Calculation:</strong><br/>
+                        Score = <b>Churn</b> (how often a file changes) × <b>Complexity</b> (AI-rated technical debt).<br/><br/>
+                        High scores highlight files that are both difficult to maintain and frequently modified.
+                    </div>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+
+        sorted_df = df_hs.sort_values("Hotspot_Score", ascending=False).head(10)
+        
+        for _, row in sorted_df.iterrows():
+            score_color = "#ff4b4b" if row['Hotspot_Score'] > 50 else "#ffa500" if row['Hotspot_Score'] > 20 else "#27ae60"
+            
+            st.markdown(f"""
+            <div style="
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                background: rgba(255,255,255,0.03);
+                border-left: 4px solid {score_color};
+                padding: 10px 20px;
+                border-radius: 8px;
+                margin-bottom: 8px;
+            ">
+                <div style="flex: 2;">
+                    <div style="font-weight: 700; color: #fff;">{row['Display']}</div>
+                    <div style="font-size: 0.75rem; color: #a0aab2;">{row['File']}</div>
+                </div>
+                <div style="flex: 1; text-align: right;">
+                    <span style="font-size: 0.8rem; color: #a0aab2; margin-right: 10px;">Score</span>
+                    <span style="font-size: 1.2rem; font-weight: 800; color: {score_color};">{row['Hotspot_Score']}</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
 
     st.write("---")

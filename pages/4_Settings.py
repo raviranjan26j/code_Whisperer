@@ -1,25 +1,30 @@
 import streamlit as st
 import shutil
+import os
+from ui_components import render_header, render_footer, apply_custom_css
 
-st.title("🌐 Repo Whisperer")
-
-with st.container(border=True):
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        if st.button("🏠 Home", type="tertiary"):
-            st.switch_page("app1.py")
-    with col2:
-        if st.button("📊 Dashboard", type="tertiary"):
-            st.switch_page("pages/2_Dashboard.py")
-    with col3:
-        if st.button("🤖 Repo Chat", type="tertiary"):
-            st.switch_page("pages/3_Chat.py")
-    with col4:
-        if st.button("⚙️ Settings", type="primary"):
-            pass
+apply_custom_css()
+render_header()
 
 if st.button("🗑️ Clear Database"):
-    shutil.rmtree(st.session_state.temp_dir)
-    st.session_state.processing_complete = False
-    st.session_state.messages = []
-    st.success("Database wiped.")
+    # Safely get temp_dir or use default
+    temp_dir = st.session_state.get("temp_dir", "./temp_repo")
+    
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)
+        
+        # Reset core session state
+        st.session_state.processing_complete = False
+        st.session_state.repochat_messages = []
+        
+        # Clear RAG components if they exist
+        for key in ["vectorstore", "bm25", "docs"]:
+            if key in st.session_state:
+                del st.session_state[key]
+                
+        st.success("Database wiped successfully. Redirecting...")
+        st.switch_page("app1.py")
+    else:
+        st.info("No temporary database found to clear.")
+
+render_footer()

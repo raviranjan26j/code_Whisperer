@@ -123,7 +123,7 @@ p code, li code, span code {
 # CONFIG
 # =====================================================
 
-API_KEY = "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"
+API_KEY = st.secrets["NVIDIA_API_KEY"]
 
 
 # =====================================================

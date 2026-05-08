@@ -17,7 +17,7 @@ if not st.session_state.get("processing_complete"):
 def get_ai_reviewer():
     return ChatNVIDIA(
         model="meta/llama-3.1-70b-instruct",
-        api_key="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", 
+        api_key=st.secrets["NVIDIA_API_KEY"],
         temperature=0.2,
         top_p=0.7,
         max_completion_tokens=1024,
@@ -217,7 +217,7 @@ def analyze_feature_fix_ratio(days=7):
 
         client = ChatNVIDIA(
             model="meta/llama-3.1-70b-instruct",
-            api_key="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",
+            api_key=st.secrets["NVIDIA_API_KEY"],
             temperature=0.1,
         )
 
@@ -332,7 +332,7 @@ with tab1:
                                 st.markdown(f"""
                                 <div class="info-card">
                                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                                        <h3 style="margin: 0;">🤖 AI Review</h3>
+                                        <h3 style="margin: 0;">AI Review</h3>
                                         <div style="display: flex; align-items: center;">
                                             <div class="score-badge {score_class}">
                                                 Pull Request Score: {score}/100

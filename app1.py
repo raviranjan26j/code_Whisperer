@@ -21,6 +21,7 @@ except FileNotFoundError:
 if "processing_complete" not in st.session_state: st.session_state.processing_complete = False
 if "repo_url" not in st.session_state: st.session_state.repo_url = ""
 if "rag_initializing" not in st.session_state: st.session_state.rag_initializing = False
+if "temp_dir" not in st.session_state: st.session_state.temp_dir = "./temp_repo"
 
 def bg_initialize_rag(repo_path):
     try:

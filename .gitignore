@@ -1,0 +1,8 @@
+.streamlit/secrets.toml
+__pycache__/
+*.pyc
+.env
+temp_repo/
+.npm_cache/
+.npm_global/
+.gitNexus/
