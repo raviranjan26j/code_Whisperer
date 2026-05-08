@@ -59,12 +59,12 @@ def apply_custom_css():
     font-family: 'Inter', sans-serif;
 }
 
-/* Center markdown content globally */
+/* Global Markdown Alignment Reset */
 [data-testid="stMarkdownContainer"] {
-    text-align: center;
+    text-align: left !important;
 }
 
-/* Preserve left alignment for specific components */
+/* Preserve left alignment for specific components (kept for clarity) */
 [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"],
 .info-card [data-testid="stMarkdownContainer"],
 .tooltiptext [data-testid="stMarkdownContainer"],
@@ -361,7 +361,7 @@ div[data-testid="stChatInput"]:focus-within {
 </style>
 """, unsafe_allow_html=True)
 
-def render_lottie_transparent(filepath: str, height: int = 200, align: str = "center"):
+def render_lottie_transparent(filepath: str, height: int = 200):
     if not os.path.exists(filepath):
         return
     with open(filepath, "r") as f:
@@ -383,7 +383,7 @@ def render_lottie_transparent(filepath: str, height: int = 200, align: str = "ce
             }}
         </style>
     </head>
-    <body style="background-color: transparent !important; display: flex; justify-content: {align if align != 'right' else 'flex-end'}; align-items: center;">
+    <body style="background-color: transparent !important; display: flex; justify-content: right; align-items: right;">
         <lottie-player 
             src="{data_uri}"
             background="transparent" 
@@ -400,17 +400,18 @@ def render_lottie_transparent(filepath: str, height: int = 200, align: str = "ce
 def render_header():
     with st.container():
         st.markdown('<div class="header-anchor"></div>', unsafe_allow_html=True)
-        # Adjusted split to visually balance the narrow logo and wide title
-        col_logo, col_title = st.columns([1.6, 2.4])
-        with col_logo:
-            # Logo right-aligned in its column
-            render_lottie_transparent(os.path.join(ROOT_DIR, "assets", "AI.json"), height=130, align="right")
-        with col_title:
-            # Title left-aligned in its column
-            st.markdown('<div class="floating-title" style="text-align: left; font-size: 4rem; margin-top: 25px; margin-left: -1rem; white-space: nowrap;">Repo Whisperer</div>', unsafe_allow_html=True)
+        # Centered container for the logo and title group
+        _, col_content, _ = st.columns([1, 5, 1])
+        with col_content:
+            # Side-by-side layout for Logo and Title
+            sub_col1, sub_col2 = st.columns([1, 4], gap="small")
+            with sub_col1:
+                render_lottie_transparent(os.path.join(ROOT_DIR, "assets", "AI.json"), height=130)
+            with sub_col2:
+                st.markdown('<div class="floating-title" style="text-align: left; font-size: 4rem; margin-top: 25px; margin-left: 2rem; white-space: nowrap;">Repo Whisperer</div>', unsafe_allow_html=True)
 
         # Subtitle centered below the logo+title group
-        st.markdown('<div class="subtitle" style="text-align: center; margin-top: -40px;">- AI-Powered Repository Intelligence & Analysis</div>', unsafe_allow_html=True)
+        st.markdown('<div class="subtitle" style="text-align: center; margin-top: -45px;">- AI-Powered Repository Intelligence & Analysis</div>', unsafe_allow_html=True)
         st.markdown("<hr style='margin-top: 5px; margin-bottom: 10px; opacity: 0.1;'/>", unsafe_allow_html=True)
 
 def render_footer():
