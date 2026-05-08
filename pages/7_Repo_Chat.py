@@ -3,6 +3,7 @@ os.environ["TRANSFORMERS_NO_TORCHVISION"] = "1"
 
 import ast
 import re
+import base64
 import numpy as np
 import streamlit as st
 
@@ -19,9 +20,36 @@ from rank_bm25 import BM25Okapi
 from ui_components import (
     apply_custom_css,
     render_header,
-    render_footer,
-    render_lottie_transparent
+    render_footer
 )
+import streamlit.components.v1 as components
+
+def render_lottie_transparent(filepath: str, height: int = 200):
+    if not os.path.exists(filepath):
+        return
+    with open(filepath, "r") as f:
+        lottie_json = f.read()
+    b64_json = base64.b64encode(lottie_json.encode('utf-8')).decode('utf-8')
+    data_uri = f"data:application/json;base64,{b64_json}"
+    
+    html_str = f"""
+    <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: {height}px;">
+        <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+        <lottie-player 
+            src="{data_uri}"
+            background="transparent" 
+            speed="1" 
+            style="width: {height}px; height: {height}px;" 
+            loop 
+            autoplay>
+        </lottie-player>
+    </div>
+    """
+    components.html(html_str, height=height)
+
+# Apply monkey-patch to fix alignment globally in this session
+import ui_components
+ui_components.render_lottie_transparent = render_lottie_transparent
 
 
 # =====================================================
