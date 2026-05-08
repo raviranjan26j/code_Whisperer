@@ -59,6 +59,19 @@ def apply_custom_css():
     font-family: 'Inter', sans-serif;
 }
 
+/* Center markdown content globally */
+[data-testid="stMarkdownContainer"] {
+    text-align: center;
+}
+
+/* Preserve left alignment for specific components */
+[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"],
+.info-card [data-testid="stMarkdownContainer"],
+.tooltiptext [data-testid="stMarkdownContainer"],
+.rule-row [data-testid="stMarkdownContainer"] {
+    text-align: left !important;
+}
+
 /* Global Heading Styles for consistency */
 h1, h2, h3, h4, h5, h6 {
     font-family: 'Inter', sans-serif
@@ -348,69 +361,57 @@ div[data-testid="stChatInput"]:focus-within {
 </style>
 """, unsafe_allow_html=True)
 
-def render_lottie_transparent(filepath: str, height: int = 200):
-    lottie_path = os.path.join(ROOT_DIR, "assets", "AI.json")
-    if os.path.exists(lottie_path):
-        with open(lottie_path, "r") as f:
-            lottie_json = f.read()
-        b64_json = base64.b64encode(lottie_json.encode('utf-8')).decode('utf-8')
-        data_uri = f"data:application/json;base64,{b64_json}"
-    else:
-        data_uri = ""
-
-    # Use a single components.html for the logo and title to ensure script execution and perfect centering
-    header_html = f"""
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <style>
-        @keyframes float {{
-            0% {{ transform: translateY(0px); }}
-            50% {{ transform: translateY(-10px); }}
-            100% {{ transform: translateY(0px); }}
-        }}
-        .header-container {{
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 20px;
-            width: 100%;
-            font-family: 'Inter', sans-serif;
-        }}
-        .floating-title {{
-            animation: float 4s ease-in-out infinite;
-            text-align: center;
-            font-size: 4rem;
-            font-weight: 800;
-            margin-top: 1rem;
-            margin-bottom: 0.5rem;
-            background: -webkit-linear-gradient(#ffffff, cornflowerblue);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            font-family: 'Inter', sans-serif;
-        }}
-    </style>
-    <div class="header-container">
-        <div style="width: 100px; height: 100px; flex-shrink: 0;">
-            <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
-            <lottie-player 
-                src="{data_uri}"
-                background="transparent" 
-                speed="1" 
-                style="width: 100px; height: 100px;" 
-                loop 
-                autoplay>
-            </lottie-player>
-        </div>
-        <div class="floating-title">Repo Whisperer</div>
-    </div>
+def render_lottie_transparent(filepath: str, height: int = 200, align: str = "center"):
+    if not os.path.exists(filepath):
+        return
+    with open(filepath, "r") as f:
+        lottie_json = f.read()
+    b64_json = base64.b64encode(lottie_json.encode('utf-8')).decode('utf-8')
+    data_uri = f"data:application/json;base64,{b64_json}"
+    
+    html_str = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+        <style>
+            body, html {{
+                margin: 0;
+                padding: 0;
+                background-color: transparent !important;
+                overflow: hidden;
+            }}
+        </style>
+    </head>
+    <body style="background-color: transparent !important; display: flex; justify-content: {align if align != 'right' else 'flex-end'}; align-items: center;">
+        <lottie-player 
+            src="{data_uri}"
+            background="transparent" 
+            speed="1" 
+            style="width: {height}px; height: {height}px;" 
+            loop 
+            autoplay>
+        </lottie-player>
+    </body>
+    </html>
     """
-    components.html(header_html, height=130)
+    components.html(html_str, height=height)
 
 def render_header():
     with st.container():
         st.markdown('<div class="header-anchor"></div>', unsafe_allow_html=True)
-        render_lottie_transparent("AI.json")
-        st.markdown('<div class="subtitle" style="margin-top: -45px; text-align: center; margin-left:3.5rem">- AI-Powered Repository Intelligence & Analysis</div>', unsafe_allow_html=True)
-        st.markdown("<hr style='margin-top: 5px; margin-bottom: 10px; opacity: 0.2;'/>", unsafe_allow_html=True)
+        # Adjusted split to visually balance the narrow logo and wide title
+        col_logo, col_title = st.columns([1.6, 2.4])
+        with col_logo:
+            # Logo right-aligned in its column
+            render_lottie_transparent(os.path.join(ROOT_DIR, "assets", "AI.json"), height=130, align="right")
+        with col_title:
+            # Title left-aligned in its column
+            st.markdown('<div class="floating-title" style="text-align: left; font-size: 4rem; margin-top: 25px; margin-left: -1rem; white-space: nowrap;">Repo Whisperer</div>', unsafe_allow_html=True)
+
+        # Subtitle centered below the logo+title group
+        st.markdown('<div class="subtitle" style="text-align: center; margin-top: -40px;">- AI-Powered Repository Intelligence & Analysis</div>', unsafe_allow_html=True)
+        st.markdown("<hr style='margin-top: 5px; margin-bottom: 10px; opacity: 0.1;'/>", unsafe_allow_html=True)
 
 def render_footer():
     st.markdown("""
