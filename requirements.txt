@@ -9,3 +9,6 @@ faiss-cpu
 torch
 torchvision
 rank_bm25
+GitPython
+pandas
+requests
